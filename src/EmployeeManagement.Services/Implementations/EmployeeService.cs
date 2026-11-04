@@ -219,6 +219,39 @@ public class EmployeeService : IEmployeeService
         return report.OrderByDescending(r => r.TotalCompensation).ToList();
     }
 
+    public async Task RequestLeaveAsync(Guid employeeId, int days, CancellationToken cancellationToken = default)
+    {
+        var employee = await _employeeRepo.GetByIdAsync(employeeId, cancellationToken)
+            ?? throw new EntityNotFoundException(nameof(Employee), employeeId);
+
+        if (employee is FullTimeEmployee ft)
+        {
+            ft.RequestLeave(days);
+            await _employeeRepo.UpdateAsync(ft, cancellationToken);
+        }
+        else
+        {
+            throw new ValidationException($"Employee '{employee.FullName}' is a {employee.EmploymentType}. Paid leave is only available for full-time employees.");
+        }
+    }
+
+    public async Task ReturnFromLeaveAsync(Guid employeeId, CancellationToken cancellationToken = default)
+    {
+        var employee = await _employeeRepo.GetByIdAsync(employeeId, cancellationToken)
+            ?? throw new EntityNotFoundException(nameof(Employee), employeeId);
+
+        if (employee is FullTimeEmployee ft)
+        {
+            ft.ReturnFromLeave();
+            await _employeeRepo.UpdateAsync(ft, cancellationToken);
+        }
+        else
+        {
+            employee.ChangeStatus(EmploymentStatus.Active);
+            await _employeeRepo.UpdateAsync(employee, cancellationToken);
+        }
+    }
+
     private static EmployeeDto MapToDto(Employee e, string departmentName)
     {
         return new EmployeeDto(

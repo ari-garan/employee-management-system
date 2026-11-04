@@ -15,6 +15,8 @@ public interface IEmployeeService
         decimal companyMultiplier,
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default);
+    Task RequestLeaveAsync(Guid employeeId, int days, CancellationToken cancellationToken = default);
+    Task ReturnFromLeaveAsync(Guid employeeId, CancellationToken cancellationToken = default);
 }
 
 public interface IDepartmentService

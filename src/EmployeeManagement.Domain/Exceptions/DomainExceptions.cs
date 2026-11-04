@@ -43,3 +43,17 @@ public class BudgetExceededException : DomainException
     }
 }
 
+public class InsufficientLeaveBalanceException : DomainException
+{
+    public int RequestedDays { get; }
+    public int RemainingDays { get; }
+
+    public InsufficientLeaveBalanceException(int requestedDays, int remainingDays)
+        : base($"Cannot grant {requestedDays} days of leave. Only {remainingDays} paid time off days remaining.")
+    {
+        RequestedDays = requestedDays;
+        RemainingDays = remainingDays;
+    }
+}
+
+

@@ -1,4 +1,5 @@
 using System.Text;
+using EmployeeManagement.Domain.Entities;
 using EmployeeManagement.Domain.Enums;
 using EmployeeManagement.Domain.Interfaces;
 using EmployeeManagement.Domain.ValueObjects;
@@ -41,6 +42,8 @@ public static class Program
             await RunEmployeeDirectoryDemo(employeeService);
             await RunBonusCalculationDemo(employeeService, bonusCalculator);
             await RunAsyncReportWithCancellationDemo(employeeService);
+            await RunLeaveManagementDemo(employeeService, employeeRepo);
+            RunDedicatedLinqExercisesDemo(employeeRepo);
             RunInjectedDefectDemo(employeeRepo, bonusCalculator);
             RunLeetCodePracticeDemo();
             Console.WriteLine("\n[SUCCESS] Automated Walkthrough completed successfully!");
@@ -51,7 +54,7 @@ public static class Program
         while (running)
         {
             PrintMenu();
-            Console.Write("Enter your selection (1-8): ");
+            Console.Write("Enter your selection (1-10): ");
             var choice = Console.ReadLine()?.Trim();
             Console.WriteLine();
 
@@ -75,17 +78,23 @@ public static class Program
                         await RunAsyncReportWithCancellationDemo(employeeService);
                         break;
                     case "6":
-                        RunInjectedDefectDemo(employeeRepo, bonusCalculator);
+                        await RunLeaveManagementDemo(employeeService, employeeRepo);
                         break;
                     case "7":
-                        RunLeetCodePracticeDemo();
+                        RunDedicatedLinqExercisesDemo(employeeRepo);
                         break;
                     case "8":
+                        RunInjectedDefectDemo(employeeRepo, bonusCalculator);
+                        break;
+                    case "9":
+                        RunLeetCodePracticeDemo();
+                        break;
+                    case "10":
                         Console.WriteLine("Exiting Employee Management System. Goodbye!");
                         running = false;
                         break;
                     default:
-                        Console.WriteLine("[WARNING] Invalid option. Please select 1 through 8.");
+                        Console.WriteLine("[WARNING] Invalid option. Please select 1 through 10.");
                         break;
                 }
             }
@@ -126,9 +135,11 @@ public static class Program
         Console.WriteLine(" 3. Register a New Employee (Validation & Value Objects)");
         Console.WriteLine(" 4. Polymorphic Bonus Calculations (OOP Polymorphism)");
         Console.WriteLine(" 5. Generate Payroll Report with Async Cancellation (Task & Cancellation)");
-        Console.WriteLine(" 6. Day 5 Assessment: Injected Defect vs. Fix Demonstration");
-        Console.WriteLine(" 7. Week 1 LeetCode Problem-Solving Suite (5 Problems)");
-        Console.WriteLine(" 8. Exit");
+        Console.WriteLine(" 6. Leave / PTO Management (Request Leave, Balance & Status Tracking)");
+        Console.WriteLine(" 7. Dedicated LINQ Exercises Suite (8 Distinct Queries with Complexity)");
+        Console.WriteLine(" 8. Day 5 Assessment: Injected Defect vs. Fix Demonstration");
+        Console.WriteLine(" 9. Week 1 LeetCode Problem-Solving Suite (5 Problems)");
+        Console.WriteLine(" 10. Exit");
     }
 
     private static async Task RunDepartmentSummaryDemo(IDepartmentService departmentService)
@@ -293,10 +304,115 @@ public static class Program
         }
     }
 
+    private static async Task RunLeaveManagementDemo(IEmployeeService employeeService, IEmployeeRepository employeeRepo)
+    {
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine("=== 6. LEAVE / PTO MANAGEMENT (STATUS & BALANCE TRACKING) ===");
+        Console.ResetColor();
+        Console.WriteLine(" Objective: Demonstrate domain state transitions, balance guards, and custom exceptions.\n");
+
+        var employees = await employeeRepo.GetAllAsync();
+        var ft = employees.OfType<FullTimeEmployee>().FirstOrDefault(e => e.EmploymentType == "FullTime");
+        var contractor = employees.FirstOrDefault(e => e.EmploymentType == "Contractor");
+
+        if (ft != null)
+        {
+            Console.WriteLine($"1. Testing Leave Request for Full-Time Employee: {ft.FullName}");
+            Console.WriteLine($"   Initial Status: {ft.Status}, Starting Remaining PTO: {ft.RemainingPtoDays} days");
+
+            Console.WriteLine("   Action: Requesting 5 days of PTO...");
+            await employeeService.RequestLeaveAsync(ft.Id, 5);
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine($"   -> New Status: {ft.Status}, Remaining PTO: {ft.RemainingPtoDays} days (Deducted successfully)");
+            Console.ResetColor();
+
+            Console.WriteLine("\n2. Testing Over-Allowance Guard (Requesting 30 days when only 15 remain)...");
+            try
+            {
+                await employeeService.RequestLeaveAsync(ft.Id, 30);
+            }
+            catch (EmployeeManagement.Domain.Exceptions.InsufficientLeaveBalanceException ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine($"   -> [GUARD TRIGGERED] InsufficientLeaveBalanceException: {ex.Message}");
+                Console.ResetColor();
+            }
+
+            Console.WriteLine("\n3. Testing Return From Leave...");
+            await employeeService.ReturnFromLeaveAsync(ft.Id);
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine($"   -> Restored Status: {ft.Status} (Employee back to Active duty)");
+            Console.ResetColor();
+        }
+
+        if (contractor != null)
+        {
+            Console.WriteLine($"\n4. Testing Contractor Leave Restriction: {contractor.FullName} ({contractor.EmploymentType})");
+            try
+            {
+                await employeeService.RequestLeaveAsync(contractor.Id, 3);
+            }
+            catch (EmployeeManagement.Domain.Exceptions.ValidationException ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine($"   -> [BUSINESS RULE ENFORCED] ValidationException: {ex.Message}");
+                Console.ResetColor();
+            }
+        }
+
+        Console.WriteLine();
+    }
+
+    private static void RunDedicatedLinqExercisesDemo(IEmployeeRepository employeeRepo)
+    {
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine("=== 7. DEDICATED LINQ EXERCISE SUITE (8 DISTINCT QUERIES) ===");
+        Console.ResetColor();
+        Console.WriteLine(" Objective: Prove mastery of filtering, projections, grouping, aggregations & quantifiers.\n");
+
+        var employees = employeeRepo.GetAllAsync().GetAwaiter().GetResult().ToList();
+
+        // Query 1: Filter
+        var engDeptId = employees.First().DepartmentId;
+        var activeInDept = LinqExercises.FilterActiveByDepartment(employees, engDeptId);
+        Console.WriteLine($"[Query 1 - Where] Active in Dept {engDeptId.ToString()[..8]}... Count: {activeInDept.Count}");
+
+        // Query 2: Select
+        var badges = LinqExercises.ProjectFormattedEmployeeBadges(employees.Take(3));
+        Console.WriteLine($"[Query 2 - Select] Formatted Badges (first 3): {string.Join(" | ", badges)}");
+
+        // Query 3: OrderBy
+        var sorted = LinqExercises.SortBySalaryDescendingThenName(employees);
+        Console.WriteLine($"[Query 3 - OrderBy/ThenBy] Top Earner: {sorted.First().FullName} ({sorted.First().Compensation.AnnualBaseSalary:C0})");
+
+        // Query 4: GroupBy
+        var roleCounts = LinqExercises.GroupAndCountByRole(employees);
+        var roleSummary = string.Join(", ", roleCounts.Take(3).Select(kv => $"{kv.Key}: {kv.Value}"));
+        Console.WriteLine($"[Query 4 - GroupBy] Employee Roles Distribution: {roleSummary}...");
+
+        // Query 5: Aggregates
+        var metrics = LinqExercises.CalculateSalaryMetrics(employees);
+        Console.WriteLine($"[Query 5 - Aggregates] Total: {metrics.Total:C0}, Avg: {metrics.Average:C0}, Min: {metrics.Min:C0}, Max: {metrics.Max:C0}");
+
+        // Query 6: Any
+        bool hasHighEarner = LinqExercises.HasHighEarner(employees, 150_000m);
+        Console.WriteLine($"[Query 6 - Any] Contains Earner >= $150k: {hasHighEarner}");
+
+        // Query 7: All
+        bool allCorporate = LinqExercises.AllHaveCorporateEmail(employees, "@enterprise.io");
+        Console.WriteLine($"[Query 7 - All] All Staff Have @enterprise.io Email: {allCorporate}");
+
+        // Query 8: Distinct
+        var cities = LinqExercises.GetDistinctCities(employees);
+        Console.WriteLine($"[Query 8 - Distinct] Unique Residential Cities: {string.Join(", ", cities)}");
+
+        Console.WriteLine();
+    }
+
     private static void RunInjectedDefectDemo(IEmployeeRepository employeeRepo, IBonusCalculator bonusCalculator)
     {
         Console.ForegroundColor = ConsoleColor.Green;
-        Console.WriteLine("=== 6. DAY 5 ASSESSMENT: INJECTED DEFECT VS. FIX ===");
+        Console.WriteLine("=== 8. DAY 5 ASSESSMENT: INJECTED DEFECT VS. FIX ===");
         Console.ResetColor();
         Console.WriteLine(" Objective: Demonstrate debugging an injected defect and verifying the fix.\n");
 
@@ -357,7 +473,7 @@ public static class Program
     private static void RunLeetCodePracticeDemo()
     {
         Console.ForegroundColor = ConsoleColor.Green;
-        Console.WriteLine("=== 7. WEEK 1 LEETCODE PRACTICE BENCHMARK (DAYS 1 TO 5) ===");
+        Console.WriteLine("=== 9. WEEK 1 LEETCODE PRACTICE BENCHMARK (DAYS 1 TO 5) ===");
         Console.ResetColor();
 
         // Day 1: Concatenation of Array
