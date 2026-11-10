@@ -152,7 +152,46 @@ classDiagram
 
 ---
 
-## 3. Day 3 Deliverable: Dedicated LINQ Exercise Suite (`LinqExercises.cs`)
+## 3. Day 1 Deliverable: Value Types vs. Reference Types & Memory Model
+
+A core learning objective of Day 1 is mastering C#'s type system, value vs. reference semantics, stack vs. heap memory allocation, and nullable types:
+
+### Value Types vs. Reference Types in this Solution
+
+| Aspect | Value Types (`struct`, `enum`, primitives) | Reference Types (`class`, `record`, `interface`) |
+|---|---|---|
+| **Examples in Solution** | `Compensation` (`readonly record struct`), `DepartmentCode`, `EmploymentStatus`, `RoleType`, `Guid`, `decimal`, `int`, `DateOnly` | `Employee`, `FullTimeEmployee`, `Manager`, `ContractEmployee`, `Department`, `Address` (`record`), `string`, `List<T>`, `Dictionary<K,V>` |
+| **Storage Location** | Allocated inline on the **Execution Stack** (or embedded directly within their containing object on the heap). Zero GC overhead. | The reference (pointer) lives on the stack; the object payload lives on the **Managed Heap** and is reclaimed by the Garbage Collector (GC). |
+| **Copy Semantics** | **Pass-by-value**: assigning or passing creates an independent copy of the bits. Modifying one copy does not affect another. | **Pass-by-reference**: assigning or passing copies only the pointer/reference. Both references point to the same instance on the heap. |
+| **Equality Semantics** | By default, compares **values** (field-by-field equality). | By default for `class`: **reference identity** (`ReferenceEquals`). For `record` and `record struct`: synthesized compiler **value-based equality**. |
+| **Why `Compensation` is a `readonly record struct`** | Guarantees immutability and zero allocation for salary data transferred frequently across calculations and LINQ pipelines. |
+| **Why `Address` is a `record` (class)** | A composite object with 5 text fields; record syntax gives value equality (`addr1 == addr2`) while remaining a reference type. |
+
+### Nullable Reference Types (NRT) & Null Safety
+The solution has `<Nullable>enable</Nullable>` enforced across all projects:
+* Reference types are **non-nullable by default** (e.g., `string FirstName`, `Department Department`).
+* Nullable annotations (`Address? ResidentialAddress`, `IProgress<string>? progress`, `decimal? TargetBonusPercentage`) explicitly communicate optionality and require caller checks, eliminating `NullReferenceException` at runtime.
+* Parameter validation guards use modern .NET 8 idioms: `ArgumentNullException.ThrowIfNull(entity)` and `ArgumentException.ThrowIfNullOrWhiteSpace(requiredDomain)`.
+
+### `string` vs. `StringBuilder`
+* `System.String` is an immutable reference type. Concatenating strings in a loop creates $n$ temporary heap allocations.
+* `StringBuilder` provides a mutable character buffer. It is used in CLI menu formatting and reporting when dynamically building complex multi-line tabular output.
+
+---
+
+## 4. Day 2 Deliverable: SOLID Principles in Action
+
+| Principle | Solution Architecture Mapping & Concrete Evidence |
+|---|---|
+| **S — Single Responsibility Principle (SRP)** | Each class has one reason to change: `Department` enforces budget limits; `Employee` encapsulates identity and roles; `BonusCalculator` calculates compensation; `EmployeeRepository` handles persistence; `EmployeeService` coordinates application workflows. |
+| **O — Open/Closed Principle (OCP)** | The domain is open for extension, closed for modification. Adding a new employee category (e.g., `InternEmployee` or `ExecutiveEmployee`) requires subclassing `Employee` and implementing `CalculateAnnualBonus()` without changing existing employee classes or calculators. |
+| **L — Liskov Substitution Principle (LSP)** | Subclasses (`FullTimeEmployee`, `Manager`, `ContractEmployee`) can be substituted wherever `Employee` is expected without breaking program correctness or invariants. Contract bonuses are computed cleanly without throwing or altering base expectations. |
+| **I — Interface Segregation Principle (ISP)** | Granular, focused interfaces prevent client bloat: `IRepository<T>` (generic async CRUD), `IEmployeeRepository` (specialized queries like `GetTopEarnersAsync`), and `IDepartmentRepository` (code lookups). Clients only depend on methods they need. |
+| **D — Dependency Inversion Principle (DIP)** | High-level orchestrators (`EmployeeService`, `DepartmentService`) depend on abstractions (`IEmployeeRepository`, `IDepartmentRepository`, `IBonusCalculator`), not concrete classes. Dependencies are injected via constructor injection. |
+
+---
+
+## 5. Day 3 Deliverable: Dedicated LINQ Exercise Suite (`LinqExercises.cs`)
 
 | # | Query Operation | Input | Output | Time Complexity | Space Complexity |
 |---|---|---|---|:---:|:---:|
@@ -167,7 +206,7 @@ classDiagram
 
 ---
 
-## 4. Leave & PTO Management
+## 6. Leave & PTO Management
 
 * **Domain Logic**: Full-time employees start with 20 PTO days (25 for managers). 
 * **State Transition**: Calling `emp.RequestLeave(days)` verifies remaining days, deducts the allowance, and transitions `Status = EmploymentStatus.OnLeave`.
@@ -178,7 +217,7 @@ classDiagram
 
 ---
 
-## 5. Day 5 Assessment: Injected Defect & Fix Analysis
+## 7. Day 5 Assessment: Injected Defect & Fix Analysis
 
 ### The Injected Defect (`CalculateWithInjectedDefect`)
 1. **Defect 1 — Missed Status Validation**: The calculation did not check `employee.Status`, erroneously issuing annual bonuses to `Terminated` employees.
@@ -194,63 +233,67 @@ classDiagram
 
 ---
 
-## 6. Week 1 LeetCode Solutions (`LeetCodeWeek1.cs`)
+## 8. Week 1 LeetCode Solutions (`LeetCodeWeek1.cs`)
 
-| Day | Problem | LeetCode # | Time Complexity | Space Complexity |
-|---|---|---|---|---|
-| Day 1 | Concatenation of Array | LC 1929 | $\mathcal{O}(n)$ | $\mathcal{O}(n)$ |
-| Day 2 | Number of Steps to Reduce a Number to Zero | LC 1342 | $\mathcal{O}(\log n)$ | $\mathcal{O}(1)$ |
-| Day 3 | Contains Duplicate | LC 217 | $\mathcal{O}(n)$ | $\mathcal{O}(n)$ |
-| Day 4 | Best Time to Buy and Sell Stock | LC 121 | $\mathcal{O}(n)$ | $\mathcal{O}(1)$ |
-| Day 5 | Valid Anagram | LC 242 | $\mathcal{O}(n)$ | $\mathcal{O}(1)$ |
+| Day | Problem | LeetCode # | Time Complexity | Space Complexity | Approach & Notes |
+|---|---|---|---|---|---|
+| Day 1 | Concatenation of Array | LC 1929 | $\mathcal{O}(n)$ | $\mathcal{O}(n)$ | High-throughput `Array.Copy` memory block transfer. |
+| Day 2 | Number of Steps to Reduce a Number to Zero | LC 1342 | $\mathcal{O}(\log n)$ | $\mathcal{O}(1)$ | Bitwise `& 1` parity check and `>>= 1` bitshift division. |
+| Day 3 | Contains Duplicate | LC 217 | $\mathcal{O}(n)$ | $\mathcal{O}(n)$ | Early exit hash set lookup via `HashSet.Add`. |
+| Day 4 | Best Time to Buy and Sell Stock | LC 121 | $\mathcal{O}(n)$ | $\mathcal{O}(1)$ | One-pass running minimum price and peak profit tracker. |
+| Day 5 | Valid Anagram | LC 242 | $\mathcal{O}(n)$ | $\mathcal{O}(1)$ | Stack-allocated `Span<int>` frequency differential array. |
 
 ---
 
-## 7. Day 1 Deliverable: 3 Sample CLI Inputs & Outputs
+## 9. Day 1 Deliverable: 3 Sample CLI Inputs & Outputs
 
 ### Sample 1: Department Analytics & Budget Utilization (Option 1)
 ```text
 === 1. DEPARTMENT ANALYTICS & BUDGET UTILIZATION ===
-Dept Name            Code       Budget        Committed     Remaining     Util %   Headcount Active Avg Salary   
-----------------------------------------------------------------------------------------------------------------
-Engineering          Engineering $1,500,000   $460,000      $1,040,000    30.67%   4         4      $115,000    
-Human Resources      HumanResou $400,000     $140,000      $260,000      35.00%   2         2      $70,000     
-Finance              Finance    $600,000     $110,000      $490,000      18.33%   1         1      $110,000    
-Marketing            Marketing  $500,000     $95,000       $405,000      19.00%   1         1      $95,000     
+Dept Name                  Code   Budget       Committed    Remaining    Util %  Staff Active Avg Salary   
+----------------------------------------------------------------------------------------------------------
+Engineering & Technology   Eng    $1,500,000   $517,000     $983,000     34.5%   4     4      $129,250    
+People & Culture           HR     $500,000     $115,000     $385,000     23.0%   1     1      $115,000    
+Finance & Accounting       Fin    $650,000     $0           $650,000      0.0%   0     0      $0          
+Product & Marketing        Mkt    $550,000     $0           $550,000      0.0%   0     0      $0          
 ```
 
 ### Sample 2: Polymorphic Bonus Calculations (Option 4)
 ```text
 === 4. POLYMORPHIC BONUS CALCULATION DEMONSTRATION ===
-Company Performance Multiplier: 1.15x
+Company Performance Multiplier: 1.0x vs 1.25x
 
-Employee Name                  Type        Base Salary  Formula / Rules                    Annual Bonus
-----------------------------------------------------------------------------------------------------------------
-Sarah Connor                   Manager     $165,000     (Base * 25% * 1.15) + $15k + Team  $63,938     
-Marcus Vance                   Manager     $135,000     (Base * 20% * 1.15) + $10k + Team  $41,550     
-Alex Rivera                    FullTime    $140,000     Base * 15% * 1.15                  $24,150     
-Elena Rostova                  FullTime    $110,000     Base * 10% * 1.15                  $12,650     
-Priya Patel                    Contractor  $135,200     Flat 3.0% Completion Bonus         $4,056      
+Name               Type         Base Salary   Bonus (1.0x)  Bonus (1.25x)
+----------------------------------------------------------------------------
+Sarah Connor       Manager         $145,000        $43,000        $50,250
+Michael Scott      Manager         $115,000        $37,000        $42,750
+Elena Rostova      FullTime        $160,000        $16,000        $20,000
+Alice Smith        FullTime        $120,000        $12,000        $15,000
+Bob Jones          FullTime         $92,000         $9,200        $11,500
+David Kim          Contractor      $104,000         $3,120         $3,120
 ```
 
 ### Sample 3: Leave Request and Balance Tracking (Option 6)
 ```text
 === 6. LEAVE / PTO MANAGEMENT (STATUS & BALANCE TRACKING) ===
-1. Testing Leave Request for Full-Time Employee: Alex Rivera
-   Initial Status: Active, Starting Remaining PTO: 20 days
+1. Testing Leave Request for Full-Time Employee: Alice Smith
+   Initial Status: Active, Starting Remaining PTO: 22 days
    Action: Requesting 5 days of PTO...
-   -> New Status: OnLeave, Remaining PTO: 15 days (Deducted successfully)
+   -> New Status: OnLeave, Remaining PTO: 17 days (Deducted successfully)
 
-2. Testing Over-Allowance Guard (Requesting 30 days when only 15 remain)...
-   -> [GUARD TRIGGERED] InsufficientLeaveBalanceException: Cannot grant 30 days of leave. Only 15 paid time off days remaining.
+2. Testing Over-Allowance Guard (Requesting 30 days when only 17 remain)...
+   -> [GUARD TRIGGERED] InsufficientLeaveBalanceException: Cannot grant 30 days of leave. Only 17 paid time off days remaining.
 
 3. Testing Return From Leave...
    -> Restored Status: Active (Employee back to Active duty)
+
+4. Testing Contractor Leave Restriction: David Kim (Contractor)
+   -> [BUSINESS RULE ENFORCED] ValidationException: Employee 'David Kim' is a Contractor. Paid leave is only available for full-time employees.
 ```
 
 ---
 
-## 8. Gate 1 Code Walkthrough Quick-Reference
+## 10. Gate 1 Code Walkthrough Quick-Reference
 
 When presenting your solution for the Gate 1 review:
 1. **Explain One Class (`FullTimeEmployee`)**:
@@ -263,10 +306,87 @@ When presenting your solution for the Gate 1 review:
 
 ---
 
-## 9. How to Run and Test
+## 11. Week 1 Technical Interview Question Bank (Days 1 to 5)
+
+### Day 1: C# Fundamentals & Memory Semantics
+* **Value vs. Reference Types?**
+  * *Value types* (`struct`, `enum`, primitives) store data directly on the stack or inline within enclosing types; copies replicate all bits.
+  * *Reference types* (`class`, `record`, `interface`, `string`) store a heap reference; copies replicate the reference pointer.
+* **`string` vs. `StringBuilder`?**
+  * `string` is immutable. Every modification creates a new string on the managed heap.
+  * `StringBuilder` provides an expandable, mutable buffer for high-frequency or loop-based string operations to eliminate memory churn.
+* **What are Nullable Reference Types (NRT)?**
+  * A C# 8+ compiler feature enabling static analysis to detect potential `NullReferenceException` at build time. Types like `string?` indicate intentional nullability.
+
+### Day 2: Object-Oriented Design & SOLID
+* **Interface vs. Abstract Class?**
+  * *Interface* defines a pure contract (behavioral blueprint) supporting multiple inheritance of type.
+  * *Abstract class* provides partial implementation, shared state, and protected constructors for inheritance hierarchies.
+* **Composition vs. Inheritance?**
+  * Inheritance models "is-a" relationships (e.g. `Manager is a FullTimeEmployee`); composition models "has-a" relationships (e.g. `Employee has an Address`). Composition offers lower coupling and greater runtime flexibility.
+* **Explain SOLID with a codebase example:**
+  * In this project, `IEmployeeRepository` (ISP) decouples the data store from `EmployeeService` (DIP). Extending bonus rules with a new employee class requires zero changes to `BonusCalculator` (OCP).
+
+### Day 3: Modern C# & LINQ
+* **`IEnumerable<T>` vs. `IQueryable<T>`?**
+  * `IEnumerable<T>` operates in-memory using compiled delegates (`Func<T, bool>`), executing sequentially via LINQ-to-Objects.
+  * `IQueryable<T>` uses expression trees (`Expression<Func<T, bool>>`), allowing translators (like EF Core) to translate queries into SQL commands executed on a remote database.
+* **What is Deferred (Lazy) Execution?**
+  * LINQ operators like `Where` and `Select` do not execute when declared. Execution is deferred until the sequence is enumerated (e.g. via `foreach`, `ToList()`, `Count()`).
+* **`List<T>` vs. `Dictionary<TKey, TValue>`?**
+  * `List<T>` is an ordered, indexable dynamic array with $\mathcal{O}(1)$ random access by index and $\mathcal{O}(n)$ search by value.
+  * `Dictionary<K,V>` is a hash-table key-value store with $\mathcal{O}(1)$ average lookup, insertion, and deletion by key.
+
+### Day 4: Asynchronous Programming & Tooling
+* **Task vs. Thread?**
+  * A `Thread` is an OS-level execution unit with high memory overhead (~1 MB stack).
+  * A `Task` represents an asynchronous operation managed by the .NET ThreadPool, multiplexing many tasks over a small number of worker threads without thread-blocking.
+* **Does `async` mean parallel?**
+  * No. `async`/`await` is about asynchronous non-blocking I/O concurrency, freeing the calling thread while awaiting external operations. Parallelism involves executing CPU-bound work across multiple cores simultaneously (e.g. `Parallel.ForEach`).
+* **What do `dotnet restore`, `dotnet build`, and `dotnet run` do?**
+  * `restore`: Downloads and resolves NuGet package dependencies specified in `.csproj` files.
+  * `build`: Compiles C# source code into IL (Intermediate Language) assemblies (`.dll`/`.exe`) and validates dependencies.
+  * `run`: Builds (if necessary) and launches the application assembly on the .NET Core Common Language Runtime (CoreCLR).
+
+---
+
+## 12. Build & Test Verification Evidence (Day 4 & Day 5 Deliverables)
+
+### Successful Multi-Project Build Evidence:
+```powershell
+dotnet build -m:1 /nr:false
+```
+```text
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  EmployeeManagement.Domain -> src\EmployeeManagement.Domain\bin\Debug\net8.0\EmployeeManagement.Domain.dll
+  EmployeeManagement.Infrastructure -> src\EmployeeManagement.Infrastructure\bin\Debug\net8.0\EmployeeManagement.Infrastructure.dll
+  EmployeeManagement.Services -> src\EmployeeManagement.Services\bin\Debug\net8.0\EmployeeManagement.Services.dll
+  EmployeeManagement.ConsoleApp -> src\EmployeeManagement.ConsoleApp\bin\Debug\net8.0\EmployeeManagement.ConsoleApp.dll
+  EmployeeManagement.Tests -> tests\EmployeeManagement.Tests\bin\Debug\net8.0\EmployeeManagement.Tests.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+```
+
+### Automated xUnit Test Suite Coverage (50 Tests across 5 files):
+* `EmployeeDomainTests.cs`: OOP inheritance, encapsulation, value objects, records, and domain exceptions.
+* `LinqExercisesAndLeaveTests.cs`: Leave state transitions, PTO deduction guards, and 8 distinct LINQ exercises.
+* `LinqAndServiceTests.cs`: Service orchestration, LINQ filtering, sorting, pagination, and department aggregations.
+* `AsyncAndDefectTests.cs`: Asynchronous cancellation token propagation and Day 5 injected defect verification.
+* `LeetCodePracticeTests.cs`: Test cases and edge cases for all 5 Week 1 LeetCode problems.
+
+---
+
+## 13. How to Run and Test
 
 ### Prerequisites
 * .NET 8.0 SDK
+
+> [!NOTE]
+> **Windows 11 Smart App Control (SAC) Notice**:
+> If running on Windows 11 with Smart App Control (SAC) enabled in strict mode, unsigned local development binaries (`.dll`/`.exe`) may trigger error `0x800711C7` ("An Application Control policy has blocked this file"). To permit local development builds, enable Developer Mode via **Windows Settings > System > For developers > Developer Mode: On**.
 
 ### Run Automated Walkthrough
 ```powershell
@@ -278,7 +398,7 @@ dotnet run --project src/EmployeeManagement.ConsoleApp -- --demo
 dotnet run --project src/EmployeeManagement.ConsoleApp
 ```
 
-### Run Automated Unit Test Suite (50 Tests)
+### Run Automated Unit Test Suite
 ```powershell
-dotnet test EmployeeManagement.sln
+dotnet test -m:1 /nr:false
 ```

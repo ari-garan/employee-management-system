@@ -143,8 +143,17 @@ public static class LeetCodeWeek1
 
         for (int i = 0; i < s.Length; i++)
         {
-            charCounts[s[i] - 'a']++;
-            charCounts[t[i] - 'a']--;
+            char cs = char.ToLowerInvariant(s[i]);
+            char ct = char.ToLowerInvariant(t[i]);
+
+            if (cs < 'a' || cs > 'z' || ct < 'a' || ct > 'z')
+            {
+                // Fallback for non-ASCII or punctuation
+                return s.OrderBy(c => c).SequenceEqual(t.OrderBy(c => c));
+            }
+
+            charCounts[cs - 'a']++;
+            charCounts[ct - 'a']--;
         }
 
         foreach (int count in charCounts)
