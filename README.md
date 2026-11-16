@@ -402,3 +402,102 @@ dotnet run --project src/EmployeeManagement.ConsoleApp
 ```powershell
 dotnet test -m:1 /nr:false
 ```
+
+
+---
+
+## 14. Week 2 Deliverables: ASP.NET Core Web API, EF Core & Security (Days 6 to 10)
+
+> **Gate 2 Milestone**: Full database-backed Web API with layered architecture, DI lifetimes, request validation, EF Core persistence, and JWT authentication/authorization.
+
+### Projects in Solution:
+* `EmployeeManagement.Domain`: Entities, value objects, exceptions, repository contracts.
+* `EmployeeManagement.Infrastructure`: EF Core `EmployeeManagementDbContext`, SQLite persistence, migrations, and seed data.
+* `EmployeeManagement.Services`: Business logic, LINQ pipelines, payroll reporting, and DTOs.
+* `EmployeeManagement.Api`: ASP.NET Core Web API controllers, JWT authentication, custom middleware, and Swagger UI.
+* `EmployeeManagement.ConsoleApp`: Interactive CLI application (Week 1 artifact).
+* `EmployeeManagement.Tests`: Automated xUnit unit & integration test suite.
+
+---
+
+### Day 6: RESTful Endpoints & HTTP Conventions
+* Controllers: `EmployeesController` and `DepartmentsController`.
+* HTTP Status Codes:
+  * `200 OK`: Successful retrieval and query execution.
+  * `201 Created`: Onboarding new employee (with `Location` header pointing to `GetEmployeeById`).
+  * `204 No Content`: Successful status changes, promotions, and PTO leave updates.
+  * `400 Bad Request`: Validation failure formatted as RFC 7807 `ProblemDetails`.
+  * `401 Unauthorized`: Unauthenticated request to protected endpoints.
+  * `403 Forbidden`: Authenticated user lacking the required role.
+  * `404 Not Found`: Non-existent employee or department GUID.
+
+---
+
+### Day 7: Dependency Injection Lifetimes & Custom Middleware
+
+#### Service Lifetime Registrations (`Program.cs`)
+1. **Singleton**: `IJwtTokenService`, `JwtSettings` — shared configuration and cryptographic token utilities.
+2. **Scoped**: `EmployeeManagementDbContext`, `IEmployeeRepository`, `IDepartmentRepository`, `IEmployeeService`, `IDepartmentService` — bound to individual HTTP request lifecycles.
+3. **Transient**: `IBonusCalculator` — lightweight stateless computation component.
+
+#### Middleware Pipeline Order
+```mermaid
+flowchart LR
+    Req([HTTP Request]) --> Exc[1. GlobalExceptionMiddleware]
+    Exc --> Log[2. RequestLoggingMiddleware]
+    Log --> Swag[3. Swagger / OpenAPI]
+    Log --> AuthN[4. UseAuthentication]
+    AuthN --> AuthZ[5. UseAuthorization]
+    AuthZ --> Ctrl[6. MapControllers]
+```
+
+* **`GlobalExceptionMiddleware`**: Catches domain exceptions (`ValidationException`, `InsufficientLeaveBalanceException`, `EntityNotFoundException`) and converts them to RFC 7807 `ProblemDetails`.
+* **`RequestLoggingMiddleware`**: Measures request latency with `Stopwatch`, emits structured log telemetry, and attaches the `X-Response-Time-Ms` response header.
+
+---
+
+### Day 8: Layered Architecture & Request Validation
+* **Layer Isolation**: The API layer depends strictly on Services & Domain contracts; database details remain encapsulated inside Infrastructure.
+* **Validation Engine (`ApiValidators.cs`)**:
+  * Names: Required, trimmed, between 2 and 50 characters.
+  * Email: Valid RFC regex pattern.
+  * Salaries: Strictly positive ($> 0$).
+  * Contractor Rules: Requires hourly rate $> 0$, agency name, and contract end date after hire date.
+  * Manager Rules: Management allowance $\ge 0$.
+  * PTO Leave: Bound between 1 and 365 days.
+
+---
+
+### Day 9: Entity Framework Core & Relational Database
+* **ORM & Database Provider**: `Microsoft.EntityFrameworkCore.Sqlite` (`employeemanagement.db`).
+* **DbContext (`EmployeeManagementDbContext.cs`)**:
+  * **Table-Per-Hierarchy (TPH)**: Maps `Employee` base class and derived classes (`FullTimeEmployee`, `Manager`, `ContractEmployee`) to a single `Employees` table with a `Discriminator` column.
+  * **Owned Value Objects**: Maps `Compensation` (`BaseSalary`, `Currency`) and `Address` (`Street`, `City`, `State`, `PostalCode`, `Country`) as inline table columns.
+  * **Relationships**: Eager and explicit navigation for `Department.Employees` with `OnDelete(DeleteBehavior.Restrict)`.
+  * **Query Optimization**: Explicit use of `.AsNoTracking()` on read-only queries to eliminate change tracking overhead.
+
+---
+
+### Day 10: API Security & JWT Authentication (Gate 2 Checkpoint)
+* **JWT Bearer Authentication**: Uses HMAC-SHA256 (`SymmetricSecurityKey`) token signing with configurable expiration and issuer validation.
+* **Role-Based Access Control (RBAC)**:
+  * `[AllowAnonymous]`: Browse employees, view departments, login.
+  * `[Authorize]`: Authenticated staff can submit PTO leave requests.
+  * `[Authorize(Roles = "Admin,Manager")]`: Onboard employees, update status, generate payroll reports.
+  * `[Authorize(Roles = "Admin")]`: Exclusive permission to promote employees and alter base salaries.
+* **Pre-configured Test Accounts (`/api/auth/login`)**:
+  * `admin@enterprise.io` / `Admin123!` (Role: `Admin`)
+  * `manager@enterprise.io` / `Manager123!` (Role: `Manager`)
+  * `employee@enterprise.io` / `Employee123!` (Role: `Employee`)
+
+---
+
+### How to Run the Web API & Test Week 2
+```powershell
+# Run the Web API (http://localhost:5000)
+dotnet run --project src/EmployeeManagement.Api
+
+# Access Swagger UI in browser:
+# http://localhost:5000
+```
+* **Interactive Requests**: Use [EmployeeManagement.Api.http](file:///d:/net/employee-management-system/src/EmployeeManagement.Api/EmployeeManagement.Api.http) to execute authentication, validation, and authorized/forbidden test calls.

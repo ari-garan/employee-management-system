@@ -1,0 +1,151 @@
+@hostname = localhost
+@port = 5000
+@host = http://{{hostname}}:{{port}}
+
+### ===========================================================================
+### 1. AUTHENTICATION & TOKEN ACQUISITION (Day 10 Deliverable)
+### ===========================================================================
+
+### 1a. Login as Admin (Role: Admin)
+# @name loginAdmin
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@enterprise.io",
+  "password": "Admin123!"
+}
+
+### 1b. Login as Manager (Role: Manager)
+# @name loginManager
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "manager@enterprise.io",
+  "password": "Manager123!"
+}
+
+### 1c. Login as Employee (Role: Employee)
+# @name loginEmployee
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "employee@enterprise.io",
+  "password": "Employee123!"
+}
+
+### Save Token Variables for subsequent requests
+@adminToken = {{loginAdmin.response.body.token}}
+@managerToken = {{loginManager.response.body.token}}
+@employeeToken = {{loginEmployee.response.body.token}}
+
+### ===========================================================================
+### 2. PUBLIC ENDPOINTS (200 OK)
+### ===========================================================================
+
+### 2a. Get All Departments & Budgets (EF Core Eager Loading)
+GET {{host}}/api/departments
+Accept: application/json
+
+### 2b. Get Paginated & Sorted Employees (EF Core Query)
+GET {{host}}/api/employees?page=1&pageSize=5&sortBy=salary&desc=true
+Accept: application/json
+
+### 2c. Get Top 3 Compensation Earners
+GET {{host}}/api/employees/top-earners?count=3
+Accept: application/json
+
+### ===========================================================================
+### 3. DAY 8: INPUT VALIDATION DEMONSTRATIONS (400 Bad Request ProblemDetails)
+### ===========================================================================
+
+### 3a. Invalid Email and Negative Salary Validation
+POST {{host}}/api/employees
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "firstName": "J",
+  "lastName": "Doe",
+  "email": "not-an-email",
+  "departmentId": "00000000-0000-0000-0000-000000000000",
+  "role": "SoftwareEngineer",
+  "hireDate": "2024-01-01",
+  "baseSalary": -5000,
+  "employmentType": "FullTime"
+}
+
+### ===========================================================================
+### 4. DAY 10: AUTHORIZATION & PERMISSION GATES (200, 201, 204, 401, 403)
+### ===========================================================================
+
+### 4a. Create Employee with Admin Token (201 Created)
+POST {{host}}/api/employees
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "firstName": "Marcus",
+  "lastName": "Aurelius",
+  "email": "marcus.aurelius@enterprise.io",
+  "departmentId": "00000000-0000-0000-0000-000000000000",
+  "role": "SeniorEngineer",
+  "hireDate": "2024-01-15",
+  "baseSalary": 125000,
+  "employmentType": "FullTime",
+  "targetBonusPercentage": 0.15,
+  "address": {
+    "street": "100 Forum Way",
+    "city": "Rome",
+    "state": "NY",
+    "postalCode": "13440",
+    "country": "USA"
+  }
+}
+
+### 4b. Create Employee WITHOUT Token (401 Unauthorized)
+POST {{host}}/api/employees
+Content-Type: application/json
+
+{
+  "firstName": "Unauthenticated",
+  "lastName": "User",
+  "email": "unauth@enterprise.io",
+  "departmentId": "00000000-0000-0000-0000-000000000000",
+  "role": "SoftwareEngineer",
+  "hireDate": "2024-01-01",
+  "baseSalary": 80000,
+  "employmentType": "FullTime"
+}
+
+### 4c. Promote Employee as Admin (204 No Content - Permitted)
+PATCH {{host}}/api/employees/00000000-0000-0000-0000-000000000000/promote
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "newRole": "StaffEngineer",
+  "newSalary": 155000
+}
+
+### 4d. Promote Employee as Standard Employee (403 Forbidden - Insufficient Permissions)
+PATCH {{host}}/api/employees/00000000-0000-0000-0000-000000000000/promote
+Authorization: Bearer {{employeeToken}}
+Content-Type: application/json
+
+{
+  "newRole": "Director",
+  "newSalary": 250000
+}
+
+### 4e. View Payroll Simulation as Manager (200 OK)
+GET {{host}}/api/employees/payroll-report?companyMultiplier=1.2
+Authorization: Bearer {{managerToken}}
+Accept: application/json
+
+### 4f. View Payroll Simulation as Employee (403 Forbidden)
+GET {{host}}/api/employees/payroll-report?companyMultiplier=1.2
+Authorization: Bearer {{employeeToken}}
+Accept: application/json
